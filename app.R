@@ -15,14 +15,19 @@ masterminds=read_csv2('data/masterminds.csv')
 heroes$id = paste0(heroes$Hero," (",heroes$Set,")")
 heroes$uni = heroes$id
 heroes$keywords = ""
+heroes$seq = seq(1,dim(heroes)[1])
 schemes$id = schemes$Name
 schemes$keywords = ""
+schemes$seq = seq(1,dim(schemes)[1])
 villains$id = villains$Group
 villains$keywords = ""
+villains$seq = seq(1,dim(villains)[1])
 henchmen$id = henchmen$Name
 henchmen$keywords = ""
+henchmen$seq = seq(1,dim(henchmen)[1])
 masterminds$id = ifelse(is.na(masterminds$MM),masterminds$Name,masterminds$MM)
 masterminds$keywords = ""
+masterminds$seq = seq(1,dim(masterminds)[1])
 
 #format data as list
 src = list(heroes,schemes,villains,henchmen,masterminds)
@@ -145,7 +150,7 @@ server <- shinyServer(function(input, output, session) {
     tt = reactiveValues(data = src)
     
     observeEvent(input$type,{
-        filterlist = srcaslist[input$type]
+        filterlist = srcaslist[input$type][[1]]
         updateSelectizeInput(session, "cards",choices=filterlist)
     })
     
@@ -169,14 +174,25 @@ server <- shinyServer(function(input, output, session) {
     observeEvent(input$cards,{
         data = filter(isolate(tt)$data[input$type][[1]],
                       id==input$cards)
+        
         if (input$type=="heroes") {
-            data %<>% filter(!duplicated(Split)|
-                             is.na(Split)|
-                             grepl("T",Split))
+            omit = data %>%
+                filter(duplicated(Split),
+                       !is.na(Split),
+                       !grepl("T",Split))
+        } else if (input$type=="masterminds") {
+            omit = data %>% 
+                filter(!is.na(T)|
+                       !is.na(Epic))
+        } else {
+            omit = tibble(seq=NA)
         }
         for (i in 1:10) {
             inpname = paste0("keywords",i)
             if (i > dim(data)[1]) {
+                updateSelectizeInput(session,inpname,selected = "")
+                hide(inpname)
+            } else if (data$seq[i]%in%omit$seq) {
                 updateSelectizeInput(session,inpname,selected = "")
                 hide(inpname)
             } else {
